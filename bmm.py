@@ -1,9 +1,5 @@
-def get_max_len_of_words(vocab):
-    max_len = 0
-    for w in vocab:
-        if len(w) > max_len:
-            max_len = len(w)
-    return max_len
+from utils import get_max_len_of_words
+
 
 def partition(S, vocab):
     """
@@ -31,7 +27,7 @@ def partition(S, vocab):
                 break
         results.append(w)
         i = i - len(w)
-        if i == -1:
+        if i == 0:
             return results[::-1]
         
 
