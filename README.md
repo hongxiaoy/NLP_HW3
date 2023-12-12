@@ -8,6 +8,34 @@ Finished：P26-33
 
 [TOC]
 
+# 词典构建
+
+代码位于 `data.py`：
+
+```python
+def load_vocab():
+
+    # 读取语料库标注
+    with open('ChineseCorpus199801.txt', 'r', encoding='gb2312', errors='ignore') as f:
+        corpus = f.readlines()
+    
+    # # ['19980131-04-004-004/m', '这/r', '就/d', '是/v', '[江/j', '峡/j', '大道/n]ns', '。/w'] 64
+
+    # 构建词典
+    vocab = []
+    for c in corpus:
+        word_list = c.split(' ')  # 以空格分隔
+        word_list = [w for w in word_list if len(w)]  # 去掉空字符串
+        word_list = [w for w in word_list if w != '\n']  # 去掉行末换行符
+        word_list = word_list[1:]  # 去掉开头日期
+        word_list = [w.split('/')[0] for w in word_list]  # 去掉词性标注
+        word_list = [w.split('[')[0] for w in word_list]  # 去掉特定地名前的大括号
+        vocab.extend(word_list)  # 添加到词典
+    vocab = list(set(vocab))  # 构建无重复词的词典
+    
+    return vocab
+```
+
 # 汉语分词方法
 
 ## 有词典切分
