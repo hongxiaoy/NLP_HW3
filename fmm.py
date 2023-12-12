@@ -12,7 +12,7 @@ def partition(S, vocab):
     i = 0
     while True:
         n = len(S) - i
-        if n == 1:
+        if n == 0:
             return results
         m = get_max_len_of_words(vocab)
         if n < m:
