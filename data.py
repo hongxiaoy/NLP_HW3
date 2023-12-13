@@ -1,4 +1,4 @@
-import chardet
+# import chardet
 from tqdm.contrib import tzip
 
 
