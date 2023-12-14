@@ -11,8 +11,6 @@ def load_vocab():
 
     vocab = []
     for c in corpus:
-        print("="*10)
-        print(c)
         word_list = c.split(' ')
         word_list = [w for w in word_list if w != '\n']
         word_list = word_list[1:]
@@ -21,7 +19,6 @@ def load_vocab():
         word_list = [w for w in word_list if len(w)]
         if not len(word_list):
             continue
-        print(word_list)
         vocab.extend(word_list)
     vocab = list(set(vocab))
     
@@ -44,7 +41,6 @@ def load_gt_sentences():
         if not len(word_list):
             continue
         gt_sentences.append(''.join(word_list))
-    
     return gt_sentences
 
 
@@ -66,3 +62,22 @@ def load_gt_partition():
         gt_partition.append(word_list)
     
     return gt_partition
+
+
+def prepare_nn_gt():
+    gt_sentences = load_gt_sentences()
+    gt_partitions = load_gt_partition()
+    assert len(gt_sentences) == len(gt_partitions)
+    gt_labels = []
+    for partition in gt_partitions:
+        gt_label = []
+        for word in partition:
+            n_char = len(word)
+            if n_char == 1:
+                gt_label.append('S')
+            elif n_char == 2:
+                gt_label.extend(['B', 'E'])
+            else:
+                gt_label.extend(['B'] + ['M'] * (n_char - 2) + ['E'])
+        gt_labels.append(gt_label)
+    return gt_sentences, gt_labels

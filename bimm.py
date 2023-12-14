@@ -20,7 +20,7 @@ def partition(S, vocab):
         elif get_single_chars_num(fmm_results) != get_single_chars_num(bmm_results):
             return fmm_results if get_single_chars_num(fmm_results) < get_single_chars_num(bmm_results) else bmm_results
         else:
-            return fmm_results
+            return bmm_results
             
 
 if __name__ == "__main__":
