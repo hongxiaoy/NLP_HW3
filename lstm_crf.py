@@ -30,10 +30,18 @@ class PartitionDataset(Dataset):
         n_train = int(0.7 * len(self.gt_sentences))
 
         max_len = 0
+        total_len = 0
+        lens = []
         for sentence in self.gt_sentences:
+            total_len += len(sentence)
+            lens.append(len(sentence))
             if len(sentence) > max_len:
                 max_len = len(sentence)
         self.max_len = max_len
+        self.mean_len = int(total_len / len(self.gt_sentences))
+        self.mean_len = int(np.median(np.array(lens)))
+        self.mean_len = 32
+        print(self.mean_len)
 
         self.label_map = {
             'B': 0,
@@ -46,6 +54,7 @@ class PartitionDataset(Dataset):
         for sentence in self.gt_sentences:  # "我喜欢看电影"
             sentence = [s for s in sentence]  # ['我', '喜', '欢', '看', '电', '影']
             self.idx_to_char.extend(sentence)
+        self.idx_to_char.append('<UNK>')
         self.idx_to_char.append('<PAD>')
         self.idx_to_char = list(set(self.idx_to_char))
         self.char_to_idx = {k: i for i, k in enumerate(self.idx_to_char)}
@@ -58,12 +67,18 @@ class PartitionDataset(Dataset):
 
             for i in range(len(self.gt_sentences)):
                 self.gt_sentences[i] = [s for s in self.gt_sentences[i]]
-                self.gt_sentences[i] += ['<PAD>'] * (self.max_len - len(self.gt_sentences[i]))
+                if self.mean_len - len(self.gt_sentences[i]) > 0:
+                    self.gt_sentences[i] += ['<PAD>'] * (self.mean_len - len(self.gt_sentences[i]))
+                else:
+                    self.gt_sentences[i] = self.gt_sentences[i][:self.mean_len]
                 for j in range(len(self.gt_sentences[i])):
                     self.gt_sentences[i][j] = self.char_to_idx[self.gt_sentences[i][j]]
             
             for i in range(len(self.gt_labels)):
-                self.gt_labels[i] += ['<PAD>'] * (self.max_len - len(self.gt_labels[i]))
+                if self.mean_len - len(self.gt_labels[i]) > 0:
+                    self.gt_labels[i] += ['<PAD>'] * (self.mean_len - len(self.gt_labels[i]))
+                else:
+                    self.gt_labels[i] = self.gt_labels[i][:self.mean_len]
                 for j in range(len(self.gt_labels[i])):
                     self.gt_labels[i][j] = self.label_map[self.gt_labels[i][j]]
 
@@ -76,12 +91,18 @@ class PartitionDataset(Dataset):
 
             for i in range(len(self.gt_sentences)):
                 self.gt_sentences[i] = [s for s in self.gt_sentences[i]]
-                self.gt_sentences[i] += ['<PAD>'] * (self.max_len - len(self.gt_sentences[i]))
+                if self.mean_len - len(self.gt_sentences[i]) > 0:
+                    self.gt_sentences[i] += ['<PAD>'] * (self.mean_len - len(self.gt_sentences[i]))
+                else:
+                    self.gt_sentences[i] = self.gt_sentences[i][:self.mean_len]
                 for j in range(len(self.gt_sentences[i])):
                     self.gt_sentences[i][j] = self.char_to_idx[self.gt_sentences[i][j]]
             
             for i in range(len(self.gt_labels)):
-                self.gt_labels[i] += ['<PAD>'] * (self.max_len - len(self.gt_labels[i]))
+                if self.mean_len - len(self.gt_labels[i]) > 0:
+                    self.gt_labels[i] += ['<PAD>'] * (self.mean_len - len(self.gt_labels[i]))
+                else:
+                    self.gt_labels[i] = self.gt_labels[i][:self.mean_len]
                 for j in range(len(self.gt_labels[i])):
                     self.gt_labels[i][j] = self.label_map[self.gt_labels[i][j]]
 
@@ -107,16 +128,16 @@ class PartitionModel(nn.Module):
         self.fc = nn.Linear(512 * 2, 5)
         self.crf = CRF(5, batch_first=True)  
     
-    def forward(self, sentences, tags=None):
+    def forward(self, sentences, tags=None, mask=None):
         lstm_input = self.embedding(sentences)  # (bs, seq_len, embed_dim)
         lstm_output = self.lstm(lstm_input)[0]  # (bs, seq_len, 2 * embed_dim)
         logits = self.fc(lstm_output)  # (bs, seq_len, 5)
 
         if tags is None:  
-            preds = self.crf.decode(logits)  # 解码预测标签  
+            preds = self.crf.decode(logits, mask=mask)  # 解码预测标签  
             return preds  
         else:  
-            loss = -self.crf(logits, tags, reduction='mean')  # 计算损失  
+            loss = -self.crf(logits, tags, reduction='mean', mask=mask)  # 计算损失  
             return loss
         
         # Softmax version
@@ -136,7 +157,7 @@ def my_collate(batch_data):
     
 
 def main():
-    total_epoch = 25
+    total_epoch = 10
 
     train_dataset = PartitionDataset(True)
     test_dataset = PartitionDataset(False)
@@ -149,7 +170,6 @@ def main():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.1)
     scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
 
-
     if torch.cuda.is_available():
         model = model.to('cuda:0')
 
@@ -160,7 +180,9 @@ def main():
             sentences, labels = batch_data
             if torch.cuda.is_available():
                 sentences, labels = sentences.to('cuda:0'), labels.to('cuda:0')
-            loss = model(sentences, tags=labels)
+            mask = labels != 4
+            mask = sentences != train_dataset.char_to_idx['<PAD>']
+            loss = model(sentences, tags=labels, mask=mask)
             
             # loss = criterion(preds, labels)
             epoch_loss.append(loss.cpu().detach().numpy())
@@ -188,15 +210,21 @@ def main():
             if torch.cuda.is_available():
                 sentences, labels = sentences.to('cuda:0'), labels.to('cuda:0')
             
-            preds = model(sentences)
+            mask = sentences != train_dataset.char_to_idx['<PAD>']
+            preds = model(sentences, mask=mask)
             # preds = torch.argmax(preds, dim=-1)
+            for i in range(len(preds)):
+                if len(preds[i]) < 32:
+                    preds[i] += [4] * (32 - len(preds[i]))
+                else:
+                    preds[i] = preds[i][:32]
             preds_val.extend(preds)
         
         sentences_val = torch.vstack(sentences_val)
         labels_val = torch.vstack(labels_val)
         preds_val = torch.tensor(preds_val).to(sentences_val.device)
 
-        labels_mask = torch.where(labels != 4)
+        labels_mask = torch.where(labels_val != 4)
         labels_val = labels_val[labels_mask]
         preds_val = preds_val[labels_mask]
         TP = torch.sum(labels_val == preds_val)

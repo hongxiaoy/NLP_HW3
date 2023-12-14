@@ -29,10 +29,18 @@ class PartitionDataset(Dataset):
         n_train = int(0.7 * len(self.gt_sentences))
 
         max_len = 0
+        total_len = 0
+        lens = []
         for sentence in self.gt_sentences:
+            total_len += len(sentence)
+            lens.append(len(sentence))
             if len(sentence) > max_len:
                 max_len = len(sentence)
         self.max_len = max_len
+        self.mean_len = int(total_len / len(self.gt_sentences))
+        self.mean_len = int(np.median(np.array(lens)))
+        self.mean_len = 32
+        print(self.mean_len)
 
         self.label_map = {
             'B': 0,
@@ -45,6 +53,7 @@ class PartitionDataset(Dataset):
         for sentence in self.gt_sentences:  # "我喜欢看电影"
             sentence = [s for s in sentence]  # ['我', '喜', '欢', '看', '电', '影']
             self.idx_to_char.extend(sentence)
+        self.idx_to_char.append('<UNK>')
         self.idx_to_char.append('<PAD>')
         self.idx_to_char = list(set(self.idx_to_char))
         self.char_to_idx = {k: i for i, k in enumerate(self.idx_to_char)}
@@ -57,12 +66,18 @@ class PartitionDataset(Dataset):
 
             for i in range(len(self.gt_sentences)):
                 self.gt_sentences[i] = [s for s in self.gt_sentences[i]]
-                self.gt_sentences[i] += ['<PAD>'] * (self.max_len - len(self.gt_sentences[i]))
+                if self.mean_len - len(self.gt_sentences[i]) > 0:
+                    self.gt_sentences[i] += ['<PAD>'] * (self.mean_len - len(self.gt_sentences[i]))
+                else:
+                    self.gt_sentences[i] = self.gt_sentences[i][:self.mean_len]
                 for j in range(len(self.gt_sentences[i])):
                     self.gt_sentences[i][j] = self.char_to_idx[self.gt_sentences[i][j]]
             
             for i in range(len(self.gt_labels)):
-                self.gt_labels[i] += ['<PAD>'] * (self.max_len - len(self.gt_labels[i]))
+                if self.mean_len - len(self.gt_labels[i]) > 0:
+                    self.gt_labels[i] += ['<PAD>'] * (self.mean_len - len(self.gt_labels[i]))
+                else:
+                    self.gt_labels[i] = self.gt_labels[i][:self.mean_len]
                 for j in range(len(self.gt_labels[i])):
                     self.gt_labels[i][j] = self.label_map[self.gt_labels[i][j]]
 
@@ -75,12 +90,18 @@ class PartitionDataset(Dataset):
 
             for i in range(len(self.gt_sentences)):
                 self.gt_sentences[i] = [s for s in self.gt_sentences[i]]
-                self.gt_sentences[i] += ['<PAD>'] * (self.max_len - len(self.gt_sentences[i]))
+                if self.mean_len - len(self.gt_sentences[i]) > 0:
+                    self.gt_sentences[i] += ['<PAD>'] * (self.mean_len - len(self.gt_sentences[i]))
+                else:
+                    self.gt_sentences[i] = self.gt_sentences[i][:self.mean_len]
                 for j in range(len(self.gt_sentences[i])):
                     self.gt_sentences[i][j] = self.char_to_idx[self.gt_sentences[i][j]]
             
             for i in range(len(self.gt_labels)):
-                self.gt_labels[i] += ['<PAD>'] * (self.max_len - len(self.gt_labels[i]))
+                if self.mean_len - len(self.gt_labels[i]) > 0:
+                    self.gt_labels[i] += ['<PAD>'] * (self.mean_len - len(self.gt_labels[i]))
+                else:
+                    self.gt_labels[i] = self.gt_labels[i][:self.mean_len]
                 for j in range(len(self.gt_labels[i])):
                     self.gt_labels[i][j] = self.label_map[self.gt_labels[i][j]]
 
@@ -126,7 +147,7 @@ def my_collate(batch_data):
     
 
 def main():
-    total_epoch = 25
+    total_epoch = 30
 
     train_dataset = PartitionDataset(True)
     test_dataset = PartitionDataset(False)
