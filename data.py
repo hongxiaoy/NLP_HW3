@@ -11,14 +11,17 @@ def load_vocab():
 
     vocab = []
     for c in corpus:
+        print("="*10)
+        print(c)
         word_list = c.split(' ')
         word_list = [w for w in word_list if w != '\n']
         word_list = word_list[1:]
         word_list = [w.split('/')[0] for w in word_list]
-        word_list = [w.split('[')[0] for w in word_list]
+        word_list = [w.split('[')[1] if '[' in w else w for w in word_list ]
         word_list = [w for w in word_list if len(w)]
         if not len(word_list):
             continue
+        print(word_list)
         vocab.extend(word_list)
     vocab = list(set(vocab))
     
@@ -37,7 +40,7 @@ def load_gt_sentences():
         word_list = [w for w in word_list if w != '\n']
         word_list = word_list[1:]
         word_list = [w.split('/')[0] for w in word_list]
-        word_list = [w.split('[')[0] for w in word_list]
+        word_list = [w.split('[')[1] if '[' in w else w for w in word_list ]
         if not len(word_list):
             continue
         gt_sentences.append(''.join(word_list))
@@ -56,7 +59,7 @@ def load_gt_partition():
         word_list = [w for w in word_list if w != '\n']
         word_list = word_list[1:]
         word_list = [w.split('/')[0] for w in word_list]
-        word_list = [w.split('[')[0] for w in word_list]
+        word_list = [w.split('[')[1] if '[' in w else w for w in word_list ]
         word_list = [w for w in word_list if len(w)]
         if not len(word_list):
             continue
