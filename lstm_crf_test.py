@@ -136,7 +136,29 @@ def my_collate(batch_data):
     
 
 def main():
-    total_epoch = 25
+    sentences = [
+        "这个仅仅是一个小测试",
+        "这仅仅是一个小测试",
+        "李小福是创新办主任也是云计算方面的专家",
+        "实现祖国的完全统一是海内外全体中国人的共同心愿",
+        "南京市长江大桥",
+        "中文分词在中文信息处理中是最最基础的，无论机器翻译亦或信息检索还是其他相关应用，如果涉及中文，都离不开中文分词，因此中文分词具有极高的地位。",
+        "蔡英文和特朗普通话",
+        "研究生命的起源",
+        "他从马上下来",
+        "老人家身体不错",
+        "老人家中很干净",
+        "这的确定不下来",
+        "乒乓球拍卖完了",
+        "香港中文大学将来合肥一中进行招生宣传今年在皖招8人万家热线安徽第一门户",
+        "在伦敦奥运会上将可能有一位沙特阿拉伯的女子",
+        "美军中将竟公然说",
+        "北京大学生喝进口红酒",
+        "在北京大学生活区喝进口红酒",
+        "将信息技术应用于教学实践",
+        "天真的你",
+        "我们中出了一个叛徒",
+    ]
 
     train_dataset = PartitionDataset(True)
     test_dataset = PartitionDataset(False)
@@ -144,76 +166,69 @@ def main():
     test_loader = DataLoader(test_dataset, 256, False, collate_fn=my_collate)
 
     model = PartitionModel(train_dataset)
-    # criterion = nn.CrossEntropyLoss(ignore_index=4)
-    # optimizer = SGD(model.parameters(), lr=0.001, weight_decay=0.1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.1)
-    scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
 
+    parameter = torch.load('lstm_crf_partition_best_at_epoch_20.pth', map_location='cpu')
+    model.load_state_dict(parameter)
 
     if torch.cuda.is_available():
         model = model.to('cuda:0')
 
-    best_acc = 0
-    for epoch in trange(total_epoch):
-        epoch_loss = []
-        for i, batch_data in enumerate(tqdm(train_loader)):
-            sentences, labels = batch_data
-            if torch.cuda.is_available():
-                sentences, labels = sentences.to('cuda:0'), labels.to('cuda:0')
-            loss = model(sentences, tags=labels)
-            
-            # loss = criterion(preds, labels)
-            epoch_loss.append(loss.cpu().detach().numpy())
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            print(f'\nEpoch: {epoch+1}, Batch: {i+1}, Loss: {loss.cpu().detach().numpy()}')
-            writer.add_scalar('training loss', loss.item(), epoch * len(train_loader) + i)
-        scheduler.step()
-        print(f"\nEpoch: {epoch+1}, Loss: {np.array(epoch_loss).mean()}")
+    model.eval()
 
-        model.eval()
-        sentences_val = []
-        labels_val = []
-        preds_val = []
-        for i, batch_data in enumerate(tqdm(test_loader)):
-            sentences, labels = batch_data
+    max_length = train_dataset.max_len
 
-            if torch.cuda.is_available():
-                sentences, labels = sentences.to('cuda:0'), labels.to('cuda:0')
+    padded_sentences = []
+    for sentence in sentences:
+        sentence = [s for s in sentence]
+        sentence = sentence + ['<PAD>'] * (max_length - len(sentence))
+        for i in range(len(sentence)):
+            try:
+                sentence[i] = train_dataset.char_to_idx[sentence[i]]
+            except:
+                # train_dataset.idx_to_char.append(sentence[i])
+                # train_dataset.char_to_idx[sentence[i]] = len(train_dataset.idx_to_char) - 1
+                sentence[i] = train_dataset.char_to_idx['<PAD>']
+        padded_sentences.append(sentence)
+    
+    model_input = torch.tensor(padded_sentences)
 
-            sentences_val.append(sentences)
-            labels_val.append(labels)
+    preds_val = []
 
-            if torch.cuda.is_available():
-                sentences, labels = sentences.to('cuda:0'), labels.to('cuda:0')
-            
-            preds = model(sentences)
-            # preds = torch.argmax(preds, dim=-1)
-            preds_val.extend(preds)
-        
-        sentences_val = torch.vstack(sentences_val)
-        labels_val = torch.vstack(labels_val)
-        preds_val = torch.tensor(preds_val).to(sentences_val.device)
+    if torch.cuda.is_available():
+        model_input = model_input.to('cuda:0')
+    
+    model_output = model(model_input)
 
-        labels_mask = torch.where(labels != 4)
-        labels_val = labels_val[labels_mask]
-        preds_val = preds_val[labels_mask]
-        TP = torch.sum(labels_val == preds_val)
-        TP_and_FN = torch.sum(labels_val == labels_val)
-        TP_and_FP = torch.sum(preds_val == preds_val)
+    sentences_val.append(sentences)
+    labels_val.append(labels)
 
-        acc = TP / TP_and_FP
-        if acc > best_acc:
-            torch.save(model.state_dict(), f'lstm_crf_partition_best_at_epoch_{epoch+1}.pth')
-            best_acc = acc
+    if torch.cuda.is_available():
+        sentences, labels = sentences.to('cuda:0'), labels.to('cuda:0')
+    
+    preds = model(sentences)
+    # preds = torch.argmax(preds, dim=-1)
+    preds_val.extend(preds)
+    
+    sentences_val = torch.vstack(sentences_val)
+    labels_val = torch.vstack(labels_val)
+    preds_val = torch.tensor(preds_val).to(sentences_val.device)
 
-        writer.add_scalar('validation Precision', TP/TP_and_FP, epoch)
-        writer.add_scalar('validation Recall', TP/TP_and_FN, epoch)
-        
-        print(f"\nEpoch (Val): {epoch+1}, ACC: {acc}")
-            
-        model.train()
+    labels_mask = torch.where(labels != 4)
+    labels_val = labels_val[labels_mask]
+    preds_val = preds_val[labels_mask]
+    TP = torch.sum(labels_val == preds_val)
+    TP_and_FN = torch.sum(labels_val == labels_val)
+    TP_and_FP = torch.sum(preds_val == preds_val)
+
+    acc = TP / TP_and_FP
+    if acc > best_acc:
+        torch.save(model.state_dict(), f'lstm_crf_partition_best_at_epoch_{epoch+1}.pth')
+        best_acc = acc
+
+    writer.add_scalar('validation Precision', TP/TP_and_FP, epoch)
+    writer.add_scalar('validation Recall', TP/TP_and_FN, epoch)
+    
+    print(f"\nEpoch (Val): {epoch+1}, ACC: {acc}")
   
     # 关闭SummaryWriter  
     writer.close()
