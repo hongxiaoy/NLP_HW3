@@ -2,6 +2,13 @@
 from tqdm.contrib import tzip
 
 
+def is_chinese(char):
+    if '\u4e00' <= char <= '\u9fff': # Unicode编码范围内的汉字
+        return True
+    else:
+        return False
+
+
 def load_vocab():
 
     with open('ChineseCorpus199801.txt', 'r', encoding='gb2312', errors='ignore') as f:
@@ -17,6 +24,7 @@ def load_vocab():
         word_list = [w.split('/')[0] for w in word_list]
         word_list = [w.split('[')[1] if '[' in w else w for w in word_list ]
         word_list = [w for w in word_list if len(w)]
+        word_list = [w for w in word_list if is_chinese(w)]
         if not len(word_list):
             continue
         vocab.extend(word_list)
@@ -38,6 +46,7 @@ def load_gt_sentences():
         word_list = word_list[1:]
         word_list = [w.split('/')[0] for w in word_list]
         word_list = [w.split('[')[1] if '[' in w else w for w in word_list ]
+        word_list = [w for w in word_list if is_chinese(w)]
         if not len(word_list):
             continue
         gt_sentences.append(''.join(word_list))
@@ -57,6 +66,7 @@ def load_gt_partition():
         word_list = [w.split('/')[0] for w in word_list]
         word_list = [w.split('[')[1] if '[' in w else w for w in word_list ]
         word_list = [w for w in word_list if len(w)]
+        word_list = [w for w in word_list if is_chinese(w)]
         if not len(word_list):
             continue
         gt_partition.append(word_list)
