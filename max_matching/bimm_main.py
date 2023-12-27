@@ -3,7 +3,7 @@ import threading
 from mmcv import track_progress
 from tqdm.contrib import tzip
 
-from max_matching.data.data import load_gt_partition, load_gt_sentences, load_vocab
+from data.data import load_gt_partition, load_gt_sentences, load_vocab
 
 from bimm import partition as bi_mm
 

@@ -83,7 +83,7 @@ def preprocess_sentence(sentence, id2word, word2id):
         # y_data.append(line_y)
 
 
-def train():
+def inference():
     # 加载预处理语料库
     with open('data/preprocessed_corpus.pkl', 'rb') as inp:
         word2id = pickle.load(inp)
@@ -137,4 +137,4 @@ def train():
     
     
 
-train()
+inference()

@@ -11,7 +11,7 @@ def is_chinese(char):
 
 def load_vocab():
 
-    with open('ChineseCorpus199801.txt', 'r', encoding='gb2312', errors='ignore') as f:
+    with open(r'data/ChineseCorpus199801.txt', 'r', encoding='gb2312', errors='ignore') as f:
         corpus = f.readlines()
     
     # ['19980131-04-004-004/m', '这/r', '就/d', '是/v', '[江/j', '峡/j', '大道/n]ns', '。/w'] 64
@@ -35,7 +35,7 @@ def load_vocab():
 
 def load_gt_sentences():
 
-    with open('ChineseCorpus199801.txt', 'r', encoding='gb2312', errors='ignore') as f:
+    with open(r'data/ChineseCorpus199801.txt', 'r', encoding='gb2312', errors='ignore') as f:
         corpus = f.readlines()
     
     gt_sentences = []

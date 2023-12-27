@@ -1,4 +1,4 @@
-from max_matching.data.data import load_vocab
+from data.data import load_vocab
 from fmm import partition as f_mm
 
 
