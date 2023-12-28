@@ -56,11 +56,11 @@ class BiLSTM_CRF(nn.Module):
 
         self.hidden = self.init_hidden()
 
-    def init_hidden(self):
+    def init_hidden(self):  # 初始化隐藏层
         return (torch.randn(2, 1, self.hidden_dim // 2).to(device),
                 torch.randn(2, 1, self.hidden_dim // 2).to(device))
 
-    def _forward_alg(self, feats):
+    def _forward_alg(self, feats):  # 前向算法
         # Do the forward algorithm to compute the partition function
         init_alphas = torch.full((1, self.tagset_size), -10000.).to(device)
         # START_TAG has all of the score.
@@ -91,12 +91,12 @@ class BiLSTM_CRF(nn.Module):
         alpha = log_sum_exp(terminal_var)
         return alpha
 
-    def _get_lstm_features(self, sentence):
-        self.hidden = self.init_hidden()
-        embeds = self.word_embeds(sentence).view(len(sentence), 1, -1)
-        lstm_out, self.hidden = self.lstm(embeds, self.hidden)
-        lstm_out = lstm_out.view(len(sentence), self.hidden_dim)
-        lstm_feats = self.hidden2tag(lstm_out)
+    def _get_lstm_features(self, sentence):  # 传入句子，获取每个字的隐藏层特征
+        self.hidden = self.init_hidden()  # 得到隐藏层参数
+        embeds = self.word_embeds(sentence).view(len(sentence), 1, -1)  # 将句子向量变为词向量形式
+        lstm_out, self.hidden = self.lstm(embeds, self.hidden)  # bilstm前向传播
+        lstm_out = lstm_out.view(len(sentence), self.hidden_dim)  # 得到输出隐藏层特征
+        lstm_feats = self.hidden2tag(lstm_out)  # 将隐藏层特征映射到类别数，得到每一个类别的score
         return lstm_feats
 
     def _score_sentence(self, feats, tags):
@@ -153,8 +153,8 @@ class BiLSTM_CRF(nn.Module):
         best_path.reverse()
         return path_score, best_path
 
-    def forward(self, sentence, tags):
-        feats = self._get_lstm_features(sentence)
+    def forward(self, sentence, tags):  # 训练时的前向传播算法
+        feats = self._get_lstm_features(sentence)  # 首先获取每个单词的类别预测得分
         forward_score = self._forward_alg(feats)
         gold_score = self._score_sentence(feats, tags)
         return forward_score - gold_score
